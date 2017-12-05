@@ -385,10 +385,10 @@ void loop() {
 
         delay(DT);
         
-        error = ypr[1] * 180/M_PI - 90; //P
+        error = ypr[1] * 180/M_PI; //P
         sum+=error; //I
         deriv = (error - lastError)/DT; //D
-        output = P*error + I*sum - D*DT;
+        output = P*error + I*sum - D*deriv;
         lastError = error;
         //Serial.print("Actuator Output: ");
         //Serial.print(output);
