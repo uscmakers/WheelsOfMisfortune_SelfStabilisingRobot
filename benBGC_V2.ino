@@ -135,10 +135,18 @@ int32_t robot_position = 0; //offset from corect position
 
 
 //loop tuning values
+/*
+ * Original
 #define kc 0.0002           //position feedback gain, (reposition robot after disturbance)0.0002
 #define kv 0.02             //velocity feedback gain 0.02
 #define kp 0.2              //angle gain 0.2
 #define kd 0.025/(2*0.004) //angle velocity gain 0.025
+*/
+
+#define kc 0.000          //position feedback gain, (reposition robot after disturbance)0.0002
+#define kv 0.0             //velocity feedback gain 0.02
+#define kp 0.2              //angle gain 0.2
+#define kd 0 //angle velocity gain 0.025
 
 #define PID_out_max 50
 #define PID_out_min -50
@@ -226,6 +234,9 @@ void PID_and_motor_comd()
     Last_last_PID_in = last_PID_in;
     last_PID_in = PID_in;
 
+    Serial.print("PID_in: ");
+    Serial.println(PID_in);
+
     PID_out = kp * PID_in + kd * dInput + kc * robot_position + kv * robot_speed;  //add loop components with gain
     //ben comment: kp is P, kd is D, and kc and kv together look like a sub for I
     //also ben comment: PID_out controls the motor output directly
@@ -242,6 +253,10 @@ void PID_and_motor_comd()
 
     R_Speed = robot_speed;
     L_Speed = robot_speed;
+    Serial.print("R_Speed:\t");
+    Serial.print(R_Speed);
+    Serial.print("\tL_Speed:\t");
+    Serial.println(L_Speed);
 
     //adjust motors to turn robot
     //NO.  BAD 2D MOTION ATTEMPT. BAD BOY. -Ben
@@ -260,6 +275,11 @@ void PID_and_motor_comd()
     //run motors
     MoveMotors(R_Motor, (uint8_t)(R_MotorStep >> 8), MotorPower);
     MoveMotors(L_Motor, (uint8_t)(L_MotorStep >> 8), MotorPower);
+    /*
+    Original
+    MoveMotors(R_Motor, (uint8_t)(R_MotorStep >> 8), MotorPower);
+    MoveMotors(L_Motor, (uint8_t)(L_MotorStep >> 8), MotorPower);
+    */
  
 }
 
@@ -548,7 +568,13 @@ ISR( TIMER1_OVF_vect )
   if ((freqCounter & 0x01) == 0)
   {
     R_MotorStep += R_Speed;
+    L_MotorStep -= R_Speed;
+    
+    /*
+    Original
+    R_MotorStep += R_Speed;
     L_MotorStep += L_Speed;
+    */
   }
 }
 
