@@ -129,6 +129,7 @@ float robot_speed;
 int16_t R_Speed = 0;
 int16_t L_Speed = 0;
 
+bool started = false;
 
 //PID stuff---------------------------------------------------------------
 int32_t robot_position = 0; //offset from corect position
@@ -143,13 +144,13 @@ int32_t robot_position = 0; //offset from corect position
 #define kd 0.025/(2*0.004) //angle velocity gain 0.025
 */
 
-#define kc 0.000          //position feedback gain, (reposition robot after disturbance)0.0002
-#define kv 0.0             //velocity feedback gain 0.02
+#define kc 0.0000          //position feedback gain, (reposition robot after disturbance)0.0002
+#define kv 0.00             //velocity feedback gain 0.02
 #define kp 0.2              //angle gain 0.2
 #define kd 0 //angle velocity gain 0.025
 
-#define PID_out_max 50
-#define PID_out_min -50
+#define PID_out_max 100
+#define PID_out_min -100
 
 float PID_in, last_PID_in, Last_last_PID_in, PID_out;
 
@@ -222,65 +223,78 @@ void loop()
 //--------------------------------------------------------------------------------------
 void PID_and_motor_comd()
 {
-    //calculate loop output, try to set robot_angle (error) to zero
-    float adjusted_angle = (robot_angle-90);
-    if(adjusted_angle<-180) adjusted_angle+=360;
-    PID_in = adjusted_angle;
-    Serial.print("Angle: ");
-    Serial.print(adjusted_angle);
-    Serial.print("\t\t");
-
-    float dInput = (3 * PID_in - 4 * last_PID_in + Last_last_PID_in); //robot angle derivative
-    Last_last_PID_in = last_PID_in;
-    last_PID_in = PID_in;
-
-    Serial.print("PID_in: ");
-    Serial.println(PID_in);
-
-    PID_out = kp * PID_in + kd * dInput + kc * robot_position + kv * robot_speed;  //add loop components with gain
-    //ben comment: kp is P, kd is D, and kc and kv together look like a sub for I
-    //also ben comment: PID_out controls the motor output directly
-    
-    if (PID_out > PID_out_max) PID_out = PID_out_max;
-    else if (PID_out < PID_out_min) PID_out = PID_out_min;
-
-    Serial.print("PID Out: ");
-    Serial.println(PID_out);
-    robot_speed += PID_out; //integrate acceleration for velocity
-
-    //robot_position += robot_speed  - 1.5 * resp_rate * joyY; //integrate velocity for displacement and add offset to move robot
-    robot_position += robot_speed; //this version doesn't need bluetooth stuff
-
-    R_Speed = robot_speed;
-    L_Speed = robot_speed;
-    Serial.print("R_Speed:\t");
-    Serial.print(R_Speed);
-    Serial.print("\tL_Speed:\t");
-    Serial.println(L_Speed);
-
-    //adjust motors to turn robot
-    //NO.  BAD 2D MOTION ATTEMPT. BAD BOY. -Ben
-    /*
-    rot_Speed = - 0.3 * joyX;
-    R_Speed += rot_Speed;
-    L_Speed -= rot_Speed;
-    */
-
-    //adjust motor power with respect to needed acc. and velocity
-    if (PID_out >= 0 ) MotorPower = (idl_motor_power + PID_out * 100) * (0.000035 * robot_speed * robot_speed + 1);
-    if (PID_out < 0 ) MotorPower = (idl_motor_power - PID_out * 100) * (0.000035 * robot_speed * robot_speed + 1);
-
-    if (MotorPower > 255) MotorPower = 255;
-
-    //run motors
-    MoveMotors(R_Motor, (uint8_t)(R_MotorStep >> 8), MotorPower);
-    MoveMotors(L_Motor, (uint8_t)(L_MotorStep >> 8), MotorPower);
-    /*
-    Original
-    MoveMotors(R_Motor, (uint8_t)(R_MotorStep >> 8), MotorPower);
-    MoveMotors(L_Motor, (uint8_t)(L_MotorStep >> 8), MotorPower);
-    */
- 
+    if(vertical || started)
+    {
+      started = true;
+      //calculate loop output, try to set robot_angle (error) to zero
+      float adjusted_angle = (robot_angle-90);
+      if(adjusted_angle<-180) adjusted_angle+=360;
+      PID_in = adjusted_angle;
+      Serial.print("Angle: ");
+      Serial.print(adjusted_angle);
+      Serial.print("\t\t");
+  
+      float dInput = (3 * PID_in - 4 * last_PID_in + Last_last_PID_in); //robot angle derivative
+      Last_last_PID_in = last_PID_in;
+      last_PID_in = PID_in;
+  
+      Serial.print("PID_in: ");
+      Serial.println(PID_in);
+  
+      PID_out = kp * PID_in + kd * dInput + kc * robot_position + kv * robot_speed;  //add loop components with gain
+      //ben comment: kp is P, kd is D, and kc and kv together look like a sub for I
+      //also ben comment: PID_out controls the motor output directly
+      
+      if (PID_out > PID_out_max) PID_out = PID_out_max;
+      else if (PID_out < PID_out_min) PID_out = PID_out_min;
+  
+      Serial.print("PID Out: ");
+      Serial.println(PID_out);
+      robot_speed += PID_out; //integrate acceleration for velocity
+  
+      //robot_position += robot_speed  - 1.5 * resp_rate * joyY; //integrate velocity for displacement and add offset to move robot
+      robot_position += robot_speed; //this version doesn't need bluetooth stuff
+  
+      R_Speed = robot_speed;
+      L_Speed = robot_speed;
+      Serial.print("R_Speed:\t");
+      Serial.print(R_Speed);
+      Serial.print("\tL_Speed:\t");
+      Serial.println(L_Speed);
+  
+      //adjust motors to turn robot
+      //NO.  BAD 2D MOTION ATTEMPT. BAD BOY. -Ben
+      /*
+      rot_Speed = - 0.3 * joyX;
+      R_Speed += rot_Speed;
+      L_Speed -= rot_Speed;
+      */
+  
+      //adjust motor power with respect to needed acc. and velocity
+      if (PID_out >= 0 ) MotorPower = (idl_motor_power + PID_out * 100) * (0.000035 * robot_speed * robot_speed + 1);
+      if (PID_out < 0 ) MotorPower = (idl_motor_power - PID_out * 100) * (0.000035 * robot_speed * robot_speed + 1);
+  
+      if (MotorPower > 255) MotorPower = 255;
+  
+      //run motors
+      MoveMotors(R_Motor, (uint8_t)(R_MotorStep >> 8), MotorPower);
+      MoveMotors(L_Motor, (uint8_t)(L_MotorStep >> 8), MotorPower);
+      /*
+      Original
+      MoveMotors(R_Motor, (uint8_t)(R_MotorStep >> 8), MotorPower);
+      MoveMotors(L_Motor, (uint8_t)(L_MotorStep >> 8), MotorPower);
+      */
+    }
+    //if not vertical turn everything off
+    else
+    {
+      motorPowerOff();
+      Last_last_PID_in = 0;
+      last_PID_in = 0;
+      MotorPower = 0;
+      robot_speed = 0;
+      robot_position = 0;
+    }
 }
 
 
@@ -548,8 +562,10 @@ void angle_calc()
   robot_angle = robot_angle * Gyro_amount + Acc_angle * (1.0 - Gyro_amount);
   
   //check if robot is vertical
-  if (robot_angle > 50 || robot_angle < -50) vertical = false;
-  if (robot_angle < 1 && robot_angle > -1) vertical = true;
+  float adjusted_angle = (robot_angle-90);
+  if(adjusted_angle<-180) adjusted_angle+=360;
+  if (adjusted_angle > 50 || adjusted_angle < -50) vertical = false;
+  if (adjusted_angle < 1 && adjusted_angle > -1) vertical = true;
 }
 
 
