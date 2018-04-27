@@ -5,6 +5,8 @@
  * noted.
  */
 
+//TODO 4-24-18: Adjust complementary filter to be a lot quicker in changing
+
 const int CALIBRATION_STEPS = 200; //adjust for shorter or longer calibration period, default=1024
 
 #pragma GCC optimize ("3")
@@ -80,8 +82,8 @@ bool vertical = false;      //is the robot vertical enough to run (disabled righ
 
 bool GyZ_filter_on = true;  //apply simple average filter to Z gyro reading
 
-
-#define Gyro_amount 0.996   //percent of gyro in complementary filter T/(T+del_t) del_t: sampling rate, T acc. timeconstant ~1s
+#define Gyro_amount 0.99 //closer to 0 makes for quicker angle adjustment
+//#define Gyro_amount 0.996   //percent of gyro in complementary filter T/(T+del_t) del_t: sampling rate, T acc. timeconstant ~1s
 
 
 //motor control-------------------------------------------------------
@@ -147,7 +149,7 @@ int32_t robot_position = 0; //offset from corect position
 #define kc 0.0000          //position feedback gain, (reposition robot after disturbance)0.0002
 #define kv 0.00             //velocity feedback gain 0.02
 #define kp 0.2              //angle gain 0.2
-#define kd 0 //angle velocity gain 0.025
+#define kd 0.025 //angle velocity gain 0.025
 
 #define PID_out_max 100
 #define PID_out_min -100
@@ -203,6 +205,12 @@ void loop()
     // record when loop starts
     oldfreqCounter = freqCounter;
 
+     //test battery voltage every ~1s
+    if ((freqCounter & 0x7FFF) == 0)
+    {
+      battery_test();
+    }
+
     //calculate angle of robot
     angle_calc();
     PID_and_motor_comd();
@@ -223,7 +231,7 @@ void loop()
 //--------------------------------------------------------------------------------------
 void PID_and_motor_comd()
 {
-    if(vertical || started)
+    if(vertical)
     {
       started = true;
       //calculate loop output, try to set robot_angle (error) to zero
@@ -250,7 +258,8 @@ void PID_and_motor_comd()
   
       Serial.print("PID Out: ");
       Serial.println(PID_out);
-      robot_speed += PID_out; //integrate acceleration for velocity
+      //robot_speed += PID_out; //integrate acceleration for velocity
+      robot_speed = PID_out*100;
   
       //robot_position += robot_speed  - 1.5 * resp_rate * joyY; //integrate velocity for displacement and add offset to move robot
       robot_position += robot_speed; //this version doesn't need bluetooth stuff
@@ -401,26 +410,6 @@ void MoveMotors(uint8_t motorNumber, uint8_t posStep, uint16_t power)
 
 
 
-//-----------------------------------------------------------------
-//battery stuff----------------------------------------------------
-//-----------------------------------------------------------------
-void battery_test()
-{
-  Bat_Voltage = analogRead(A2);
-
-  if (Bat_Voltage < dischargeVoltage)
-  {
-    Bat_Discharged = true;
-    digitalWrite(LEDPIN, HIGH);    //LED on when battery discharged
-  }
-  else
-  {
-    if (Bat_Voltage > resetVoltage) Bat_Discharged = false;
-
-    if (Bat_Discharged == false) digitalWrite(LEDPIN, !digitalRead(LEDPIN));  //flash LED on/off every 2sec when battery charged
-  }
-}
-
 
 
 //------------------------------------------------------------------
@@ -569,6 +558,26 @@ void angle_calc()
 }
 
 
+void battery_test()
+{
+  Bat_Voltage = analogRead(A2);
+  
+  if (Bat_Voltage < dischargeVoltage)
+  {
+    Bat_Discharged = true;
+    digitalWrite(LEDPIN, HIGH);    //LED on when battery discharged
+  }
+  else
+  {
+    if (Bat_Voltage > resetVoltage) Bat_Discharged = false;
+
+    if (Bat_Discharged == false) digitalWrite(LEDPIN, !digitalRead(LEDPIN));  //flash LED on/off every 2sec when battery charged
+  }
+  Serial.print("In battery test. Current voltage is : ");
+  Serial.print(Bat_Voltage * 0.019698);
+  Serial.print(", necessary voltage is: ");
+  Serial.println(dischargeVoltage * 0.019698);
+}
 
 
 //--------------------------------------------------------------
